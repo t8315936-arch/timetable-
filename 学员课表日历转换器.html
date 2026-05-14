@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学员课表日历转换器</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #f3f8f5;
+      --panel: #ffffff;
+      --panel-soft: #f7fbf8;
+      --text: #173128;
+      --muted: #66756f;
+      --line: #d8e7de;
+      --line-strong: #b8d0c1;
+      --primary: #16805b;
+      --primary-deep: #0f6748;
+      --primary-soft: #e7f6ef;
+      --warning-soft: #fff6e4;
+      --shadow: 0 18px 44px rgba(29, 82, 62, 0.11);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, rgba(224, 243, 232, 0.88) 0%, var(--bg) 42%, #eef6f1 100%);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .app {
+      width: min(1580px, 100%);
+      margin: 0 auto;
+      padding: 22px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.25;
+    }
+
+    .brand p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      min-height: 42px;
+      padding: 0 16px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 700;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(22, 128, 91, 0.14);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-deep);
+    }
+
+    .btn-plain {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .btn-danger {
+      background: #fff;
+      color: #9f4b18;
+      border: 1px solid #efd4bc;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .calendar-card,
+    .filter-card,
+    .summary-card {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(199, 221, 207, 0.95);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .calendar-header {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .calendar-title {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .calendar-title strong {
+      font-size: 22px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .calendar-title span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .week-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: nowrap;
+      justify-content: flex-end;
+    }
+
+    .week-tools input[type="date"],
+    .week-tools input[type="month"] {
+      width: 168px;
+      flex: 0 0 168px;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 10px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    .calendar-scroll {
+      overflow-y: visible;
+      overflow-x: hidden;
+      max-height: none;
+    }
+
+    .time-node-panel {
+      display: none;
+    }
+
+    .calendar-grid {
+      width: 100%;
+      min-width: 100%;
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+
+    .cell {
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .weekday-head {
+      position: sticky;
+      top: 0;
+      background: var(--panel-soft);
+      z-index: 2;
+      min-height: 60px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      border-bottom: 1px solid var(--line-strong);
+      font-weight: 800;
+      font-size: 17px;
+    }
+
+    .month-day {
+      min-height: 118px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .month-day.is-muted {
+      background: #f6f8f6;
+      color: var(--muted);
+      opacity: 0.72;
+    }
+
+    .month-day.is-today {
+      background: #fbfffd;
+      box-shadow: inset 0 0 0 2px rgba(22, 128, 91, 0.28);
+    }
+
+    .date-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 28px;
+    }
+
+    .date-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 28px;
+    }
+
+    .solar-date {
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .month-day.is-today .solar-date {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: inline-grid;
+      place-items: center;
+      background: var(--primary);
+      color: #fff;
+      font-size: 20px;
+    }
+
+    .course-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .more-count {
+      color: var(--muted);
+      font-size: 13px;
+      padding-left: 7px;
+    }
+
+    .course {
+      border-left: 4px solid var(--subject-color);
+      border-top: 1px solid var(--student-color);
+      border-right: 1px solid var(--student-color);
+      border-bottom: 1px solid var(--student-color);
+      background: var(--subject-bg);
+      border-radius: 6px;
+      padding: 4px 6px;
+      min-height: 0;
+      color: #123126;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+    }
+
+    .course.is-conflict {
+      width: 100%;
+      text-align: left;
+      border: 1px dashed var(--student-color);
+      border-left: 4px solid var(--subject-color);
+      cursor: pointer;
+    }
+
+    .course b {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 2px;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .course span {
+      display: block;
+      font-size: 10px;
+      line-height: 1.35;
+      color: #37574a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .detail-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .detail-course {
+      border-left: 5px solid var(--subject-color);
+      border-top: 1px solid var(--student-color);
+      border-right: 1px solid var(--student-color);
+      border-bottom: 1px solid var(--student-color);
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--subject-bg);
+    }
+
+    .detail-course b,
+    .detail-course span {
+      display: block;
+      line-height: 1.5;
+    }
+
+    .detail-course span {
+      color: #37574a;
+      font-size: 13px;
+    }
+
+    .empty-state {
+      padding: 42px 20px;
+      text-align: center;
+      color: var(--muted);
+      background: #fff;
+      border-top: 1px solid var(--line);
+    }
+
+    .filter-card {
+      display: none;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    .filter-card.is-open {
+      display: block;
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(140px, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    select,
+    input[type="date"],
+    input[type="text"] {
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 10px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    .checkbox-label {
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .checkbox-label input {
+      width: 17px;
+      height: 17px;
+      accent-color: var(--primary);
+    }
+
+    .summary-card {
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .stats {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .stats b {
+      color: var(--text);
+    }
+
+    .legend {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--subject-color);
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 18px;
+      background: rgba(11, 24, 43, 0.42);
+      z-index: 20;
+    }
+
+    .modal.is-open {
+      display: grid;
+    }
+
+    .modal-box {
+      width: min(760px, 100%);
+      max-height: min(86vh, 760px);
+      overflow: auto;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 26px 80px rgba(13, 28, 48, 0.28);
+    }
+
+    .modal-head,
+    .modal-foot {
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .modal-foot {
+      border-top: 1px solid var(--line);
+      border-bottom: 0;
+      justify-content: flex-end;
+    }
+
+    .modal-head h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .modal-body {
+      padding: 16px;
+    }
+
+    .drop-zone {
+      border: 2px dashed #9fc9b1;
+      border-radius: 8px;
+      min-height: 170px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 22px;
+      background: #f7fbf8;
+      transition: border 0.18s ease, background 0.18s ease;
+    }
+
+    .drop-zone.is-dragging {
+      border-color: var(--primary);
+      background: var(--primary-soft);
+    }
+
+    .drop-zone strong {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .drop-zone p {
+      margin: 0 0 14px;
+      color: var(--muted);
+    }
+
+    .preview {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .preview table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .preview th,
+    .preview td {
+      border-bottom: 1px solid var(--line);
+      padding: 8px;
+      text-align: left;
+    }
+
+    .preview th {
+      background: var(--panel-soft);
+    }
+
+    .message {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        padding: 14px;
+      }
+
+      .topbar,
+      .calendar-header {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        align-items: flex-start;
+      }
+
+      .actions,
+      .week-tools {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+
+      .filter-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .brand h1 {
+        font-size: 22px;
+      }
+
+      .filter-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="topbar">
+      <div class="brand">
+        <h1 id="pageTitle">学生课表</h1>
+        <p>上传 Excel 后，网页会自动识别姓名、科目、教师、教室、日期和上课时间。</p>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="newBtn" type="button">新建</button>
+        <button class="btn btn-plain" id="viewBtn" type="button">查看</button>
+        <button class="btn btn-danger" id="clearBtn" type="button">清空保存</button>
+      </div>
+    </section>
+
+    <section class="filter-card" id="filterPanel">
+      <div class="filter-grid">
+        <label>起始日期
+          <input type="date" id="filterStartDate">
+        </label>
+        <label>结束日期
+          <input type="date" id="filterEndDate">
+        </label>
+        <label>学生姓名
+          <select id="filterStudent"></select>
+        </label>
+        <label>上课教师
+          <select id="filterTeacher"></select>
+        </label>
+        <label>教室显示
+          <span class="checkbox-label">
+            <input type="checkbox" id="showRoom" checked>
+            显示教室
+          </span>
+        </label>
+        <label>科目
+          <select id="filterSubject"></select>
+        </label>
+      </div>
+    </section>
+
+    <section class="summary-card">
+      <div class="stats">
+        <span>课程：<b id="statCount">0</b> 节</span>
+        <span>学生：<b id="statStudents">0</b> 人</span>
+        <span>日期范围：<b id="statRange">暂无</b></span>
+      </div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <section class="calendar-card">
+      <div class="calendar-header">
+        <div class="calendar-title">
+          <strong id="calendarTitle">学生课表</strong>
+          <span id="weekLabel">日历会按整月显示</span>
+        </div>
+        <div class="week-tools">
+          <button class="btn btn-plain" id="prevWeek" type="button">上个月</button>
+          <input type="month" id="weekPicker">
+          <button class="btn btn-plain" id="nextWeek" type="button">下个月</button>
+          <button class="btn btn-plain" id="todayBtn" type="button">回到今天</button>
+        </div>
+      </div>
+      <div class="calendar-scroll">
+        <div class="calendar-grid" id="calendarGrid"></div>
+        <div class="empty-state" id="emptyState">这里会显示保存后的课程日历。</div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal" id="uploadModal" aria-hidden="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2>新建课表</h2>
+        <button class="btn btn-plain" id="closeModal" type="button">关闭</button>
+      </div>
+      <div class="modal-body">
+        <div class="drop-zone" id="dropZone">
+          <div>
+            <strong>拖入 Excel 文件</strong>
+            <p>也可以点击下面按钮，从电脑里选择 .xlsx、.xls 或 .csv 文件。</p>
+            <button class="btn btn-primary" id="chooseFileBtn" type="button">选择文件</button>
+            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+          </div>
+        </div>
+        <div class="message" id="uploadMessage">上传后会先预览，不会立刻覆盖首页。</div>
+        <div class="preview" id="previewBox" hidden></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-plain" id="discardBtn" type="button">不保存</button>
+        <button class="btn btn-primary" id="saveBtn" type="button" disabled>保存到首页</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="detailModal" aria-hidden="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2 id="detailTitle">课程详情</h2>
+        <button class="btn btn-plain" id="closeDetailModal" type="button">关闭</button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-list" id="detailList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "student-calendar-schedule-v1";
+
+    const timeSlots = [
+      { start: "09:00", end: "09:45", label: "第1课时" },
+      { start: "09:50", end: "10:35", label: "第2课时" },
+      { start: "10:40", end: "11:25", label: "第3课时" },
+      { start: "11:30", end: "12:15", label: "第4课时" },
+      { start: "12:15", end: "13:15", label: "午休", break: true },
+      { start: "13:15", end: "14:00", label: "第5课时" },
+      { start: "14:05", end: "14:50", label: "第6课时" },
+      { start: "14:55", end: "15:40", label: "第7课时" },
+      { start: "15:45", end: "16:30", label: "第8课时" },
+      { start: "16:35", end: "17:20", label: "第9课时" },
+      { start: "17:30", end: "18:30", label: "晚休", break: true },
+      { start: "18:30", end: "19:15", label: "第10课时" },
+      { start: "19:20", end: "20:05", label: "第11课时" },
+      { start: "20:10", end: "20:55", label: "第12课时" }
+    ];
+
+    const subjectColors = [
+      ["#0f766e", "#dff7f2"],
+      ["#dc2626", "#fee2e2"],
+      ["#2563eb", "#dbeafe"],
+      ["#9333ea", "#f3e8ff"],
+      ["#ea580c", "#ffedd5"],
+      ["#16a34a", "#dcfce7"],
+      ["#c026d3", "#fae8ff"],
+      ["#ca8a04", "#fef3c7"],
+      ["#0891b2", "#cffafe"],
+      ["#4f46e5", "#e0e7ff"]
+    ];
+
+    const studentColors = [
+      "#0f766e",
+      "#dc2626",
+      "#2563eb",
+      "#9333ea",
+      "#ea580c",
+      "#16a34a",
+      "#c026d3",
+      "#ca8a04",
+      "#0891b2",
+      "#4f46e5",
+      "#be123c",
+      "#15803d"
+    ];
+
+    const weekdayNames = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+    const state = {
+      courses: [],
+      filteredCourses: [],
+      previewCourses: [],
+      detailGroups: {},
+      selectedMonthDate: new Date(),
+      filters: {
+        startDate: "",
+        endDate: "",
+        student: "",
+        teacher: "",
+        subject: ""
+      },
+      showRoom: true
+    };
+
+    const el = {
+      pageTitle: document.querySelector("#pageTitle"),
+      calendarTitle: document.querySelector("#calendarTitle"),
+      weekLabel: document.querySelector("#weekLabel"),
+      calendarGrid: document.querySelector("#calendarGrid"),
+      emptyState: document.querySelector("#emptyState"),
+      newBtn: document.querySelector("#newBtn"),
+      viewBtn: document.querySelector("#viewBtn"),
+      clearBtn: document.querySelector("#clearBtn"),
+      uploadModal: document.querySelector("#uploadModal"),
+      closeModal: document.querySelector("#closeModal"),
+      detailModal: document.querySelector("#detailModal"),
+      closeDetailModal: document.querySelector("#closeDetailModal"),
+      detailTitle: document.querySelector("#detailTitle"),
+      detailList: document.querySelector("#detailList"),
+      chooseFileBtn: document.querySelector("#chooseFileBtn"),
+      fileInput: document.querySelector("#fileInput"),
+      dropZone: document.querySelector("#dropZone"),
+      uploadMessage: document.querySelector("#uploadMessage"),
+      previewBox: document.querySelector("#previewBox"),
+      saveBtn: document.querySelector("#saveBtn"),
+      discardBtn: document.querySelector("#discardBtn"),
+      filterPanel: document.querySelector("#filterPanel"),
+      filterStartDate: document.querySelector("#filterStartDate"),
+      filterEndDate: document.querySelector("#filterEndDate"),
+      filterStudent: document.querySelector("#filterStudent"),
+      filterTeacher: document.querySelector("#filterTeacher"),
+      showRoom: document.querySelector("#showRoom"),
+      filterSubject: document.querySelector("#filterSubject"),
+      weekPicker: document.querySelector("#weekPicker"),
+      prevWeek: document.querySelector("#prevWeek"),
+      nextWeek: document.querySelector("#nextWeek"),
+      todayBtn: document.querySelector("#todayBtn"),
+      statCount: document.querySelector("#statCount"),
+      statStudents: document.querySelector("#statStudents"),
+      statRange: document.querySelector("#statRange"),
+      legend: document.querySelector("#legend")
+    };
+
+    init();
+
+    function init() {
+      bindEvents();
+      loadSavedCourses();
+      if (state.courses.length > 0) {
+        state.selectedMonthDate = new Date(state.courses[0].date + "T12:00:00");
+      }
+      renderAll();
+    }
+
+    function bindEvents() {
+      el.newBtn.addEventListener("click", openModal);
+      el.closeModal.addEventListener("click", closeModal);
+      el.closeDetailModal.addEventListener("click", closeDetailModal);
+      el.discardBtn.addEventListener("click", discardPreview);
+      el.chooseFileBtn.addEventListener("click", () => el.fileInput.click());
+      el.fileInput.addEventListener("change", event => {
+        const file = event.target.files[0];
+        if (file) handleFile(file);
+      });
+      el.saveBtn.addEventListener("click", savePreview);
+      el.viewBtn.addEventListener("click", () => {
+        el.filterPanel.classList.toggle("is-open");
+      });
+      el.clearBtn.addEventListener("click", clearSavedCourses);
+      el.prevWeek.addEventListener("click", () => moveWeek(-1));
+      el.nextWeek.addEventListener("click", () => moveWeek(1));
+      el.todayBtn.addEventListener("click", () => {
+        state.selectedMonthDate = new Date();
+        renderAll();
+      });
+      el.weekPicker.addEventListener("change", () => {
+        if (el.weekPicker.value) {
+          state.selectedMonthDate = new Date(el.weekPicker.value + "-01T12:00:00");
+          renderAll();
+        }
+      });
+
+      [el.filterStartDate, el.filterEndDate, el.filterStudent, el.filterTeacher, el.filterSubject].forEach(input => {
+        input.addEventListener("change", updateFiltersFromInputs);
+      });
+      el.showRoom.addEventListener("change", () => {
+        state.showRoom = el.showRoom.checked;
+        renderCalendar();
+      });
+      el.calendarGrid.addEventListener("click", event => {
+        const button = event.target.closest("[data-group-id]");
+        if (button) openDetailModal(button.dataset.groupId);
+      });
+
+      ["dragenter", "dragover"].forEach(name => {
+        el.dropZone.addEventListener(name, event => {
+          event.preventDefault();
+          el.dropZone.classList.add("is-dragging");
+        });
+      });
+
+      ["dragleave", "drop"].forEach(name => {
+        el.dropZone.addEventListener(name, event => {
+          event.preventDefault();
+          el.dropZone.classList.remove("is-dragging");
+        });
+      });
+
+      el.dropZone.addEventListener("drop", event => {
+        const file = event.dataTransfer.files[0];
+        if (file) handleFile(file);
+      });
+    }
+
+    function openModal() {
+      el.uploadModal.classList.add("is-open");
+      el.uploadModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeModal() {
+      el.uploadModal.classList.remove("is-open");
+      el.uploadModal.setAttribute("aria-hidden", "true");
+    }
+
+    function openDetailModal(groupId) {
+      const courses = state.detailGroups[groupId] || [];
+      if (courses.length === 0) return;
+      const first = courses[0];
+      el.detailTitle.textContent = `${first.date} ${first.start}-${first.end}`;
+      el.detailList.innerHTML = courses.map(renderDetailCourse).join("");
+      el.detailModal.classList.add("is-open");
+      el.detailModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeDetailModal() {
+      el.detailModal.classList.remove("is-open");
+      el.detailModal.setAttribute("aria-hidden", "true");
+    }
+
+    function discardPreview() {
+      state.previewCourses = [];
+      el.fileInput.value = "";
+      el.saveBtn.disabled = true;
+      el.previewBox.hidden = true;
+      el.previewBox.innerHTML = "";
+      el.uploadMessage.textContent = "已取消这次上传，首页没有变化。";
+    }
+
+    function loadSavedCourses() {
+      try {
+        state.courses = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      } catch (error) {
+        state.courses = [];
+      }
+    }
+
+    function saveCourses() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.courses));
+        return true;
+      } catch (error) {
+        console.warn("浏览器阻止了本地保存，但课表仍会显示在当前页面。", error);
+        return false;
+      }
+    }
+
+    function clearSavedCourses() {
+      if (!confirm("确定要清空已经保存的课表吗？")) return;
+      state.courses = [];
+      saveCourses();
+      resetFilters();
+      renderAll();
+    }
+
+    function savePreview() {
+      if (state.previewCourses.length === 0) {
+        el.uploadMessage.textContent = "还没有可保存的课程，请先上传能识别出课程的 Excel。";
+        return;
+      }
+
+      state.courses = state.previewCourses.slice().sort(sortCourses);
+      const savedToBrowser = saveCourses();
+      state.selectedMonthDate = new Date(state.courses[0].date + "T12:00:00");
+      resetFilters();
+      discardPreview();
+      renderAll();
+      closeModal();
+
+      if (!savedToBrowser) {
+        setTimeout(() => {
+          alert("课表已经显示到首页了，但当前浏览器没有允许长期保存。放到 GitHub Pages 后通常就可以正常保存。");
+        }, 80);
+      }
+    }
+
+    function handleFile(file) {
+      if (typeof XLSX === "undefined") {
+        el.uploadMessage.textContent = "没有加载到 Excel 读取工具。请联网后刷新页面再试。";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = event => {
+        try {
+          const workbook = XLSX.read(event.target.result, { type: "array", cellDates: true });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "", raw: false });
+          const courses = rows.map(rowToCourse).filter(Boolean).sort(sortCourses);
+
+          state.previewCourses = courses;
+          el.saveBtn.disabled = courses.length === 0;
+          renderPreview(courses, file.name);
+        } catch (error) {
+          state.previewCourses = [];
+          el.saveBtn.disabled = true;
+          el.previewBox.hidden = true;
+          el.uploadMessage.textContent = "这个文件暂时没有读取成功，请确认第一行是表头。";
+          console.error(error);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function rowToCourse(row) {
+      const student = pick(row, ["姓名", "学生姓名", "学员姓名"]);
+      const subject = pick(row, ["科目", "课程", "课程名称"]);
+      const teacher = pick(row, ["教师", "上课教师", "老师"]);
+      const room = pick(row, ["教室", "上课教室"]);
+      const date = normalizeDate(pick(row, ["上课日期", "日期", "课程日期"]));
+      const start = normalizeTime(pick(row, ["起始时间", "开始时间", "上课时间"]));
+      const end = normalizeTime(pick(row, ["结束时间", "下课时间"]));
+
+      if (!student || !subject || !date || !start || !end) return null;
+      return {
+        id: `${student}-${subject}-${teacher}-${room}-${date}-${start}-${end}`,
+        student,
+        subject,
+        teacher,
+        room,
+        date,
+        start,
+        end
+      };
+    }
+
+    function pick(row, names) {
+      for (const name of names) {
+        if (row[name] !== undefined && String(row[name]).trim() !== "") {
+          return String(row[name]).trim();
+        }
+      }
+      return "";
+    }
+
+    function normalizeDate(value) {
+      const text = String(value).trim();
+      if (!text) return "";
+      const match = text.match(/(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/);
+      if (match) {
+        return `${match[1]}-${pad2(match[2])}-${pad2(match[3])}`;
+      }
+      const parsed = new Date(text);
+      if (!Number.isNaN(parsed.getTime())) return formatDate(parsed);
+      return "";
+    }
+
+    function normalizeTime(value) {
+      const text = String(value).trim();
+      const match = text.match(/(\d{1,2}):(\d{1,2})/);
+      if (match) return `${pad2(match[1])}:${pad2(match[2])}`;
+      return "";
+    }
+
+    function pad2(value) {
+      return String(value).padStart(2, "0");
+    }
+
+    function sortCourses(a, b) {
+      return `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`);
+    }
+
+    function renderPreview(courses, fileName) {
+      if (courses.length === 0) {
+        el.previewBox.hidden = true;
+        el.uploadMessage.textContent = `已读取 ${fileName}，但没有找到完整课程。请检查表头是否包含姓名、科目、教师、教室、上课日期、起始时间、结束时间。`;
+        return;
+      }
+
+      const students = unique(courses.map(course => course.student));
+      const subjects = unique(courses.map(course => course.subject));
+      el.uploadMessage.textContent = `已读取 ${fileName}：找到 ${courses.length} 节课，${students.length} 名学生，${subjects.length} 个科目。确认无误后可以保存到首页。`;
+
+      const rows = courses.slice(0, 6).map(course => `
+        <tr>
+          <td>${escapeHtml(course.date)}</td>
+          <td>${escapeHtml(course.start)}-${escapeHtml(course.end)}</td>
+          <td>${escapeHtml(course.student)}</td>
+          <td>${escapeHtml(course.subject)}</td>
+          <td>${escapeHtml(course.teacher)}</td>
+          <td>${escapeHtml(course.room)}</td>
+        </tr>
+      `).join("");
+
+      el.previewBox.hidden = false;
+      el.previewBox.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>时间</th>
+              <th>学生</th>
+              <th>科目</th>
+              <th>教师</th>
+              <th>教室</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function renderAll() {
+      applyFilters();
+      renderFilterOptions();
+      renderSummary();
+      renderCalendar();
+    }
+
+    function applyFilters() {
+      state.filteredCourses = state.courses.filter(course => {
+        if (state.filters.startDate && course.date < state.filters.startDate) return false;
+        if (state.filters.endDate && course.date > state.filters.endDate) return false;
+        if (state.filters.student && course.student !== state.filters.student) return false;
+        if (state.filters.teacher && course.teacher !== state.filters.teacher) return false;
+        if (state.filters.subject && course.subject !== state.filters.subject) return false;
+        return true;
+      });
+    }
+
+    function updateFiltersFromInputs() {
+      state.filters.startDate = el.filterStartDate.value;
+      state.filters.endDate = el.filterEndDate.value;
+      state.filters.student = el.filterStudent.value;
+      state.filters.teacher = el.filterTeacher.value;
+      state.filters.subject = el.filterSubject.value;
+      if (state.filters.startDate) {
+        state.selectedMonthDate = new Date(state.filters.startDate + "T12:00:00");
+      }
+      renderAll();
+    }
+
+    function resetFilters() {
+      state.filters = { startDate: "", endDate: "", student: "", teacher: "", subject: "" };
+      el.filterStartDate.value = "";
+      el.filterEndDate.value = "";
+    }
+
+    function renderFilterOptions() {
+      setSelectOptions(el.filterStudent, unique(state.courses.map(course => course.student)), "全部学生", state.filters.student);
+      setSelectOptions(el.filterTeacher, unique(state.courses.map(course => course.teacher)), "全部教师", state.filters.teacher);
+      setSelectOptions(el.filterSubject, unique(state.courses.map(course => course.subject)), "全部科目", state.filters.subject);
+      el.filterStartDate.value = state.filters.startDate;
+      el.filterEndDate.value = state.filters.endDate;
+      el.showRoom.checked = state.showRoom;
+    }
+
+    function setSelectOptions(select, options, firstText, selected) {
+      select.innerHTML = `<option value="">${firstText}</option>` + options.map(option => (
+        `<option value="${escapeHtml(option)}"${option === selected ? " selected" : ""}>${escapeHtml(option)}</option>`
+      )).join("");
+    }
+
+    function renderSummary() {
+      const courses = state.filteredCourses;
+      const students = unique(courses.map(course => course.student));
+      const dates = courses.map(course => course.date).sort();
+      el.statCount.textContent = courses.length;
+      el.statStudents.textContent = students.length;
+      el.statRange.textContent = dates.length ? `${dates[0]} 至 ${dates[dates.length - 1]}` : "暂无";
+
+      const subjects = unique(courses.map(course => course.subject));
+      el.legend.innerHTML = subjects.map(subject => {
+        const color = getSubjectColor(subject);
+        return `<span class="legend-item"><i class="dot" style="--subject-color:${color[0]}"></i>${escapeHtml(subject)}</span>`;
+      }).join("");
+    }
+
+    function renderCalendar() {
+      const monthDate = new Date(state.selectedMonthDate);
+      monthDate.setDate(1);
+      monthDate.setHours(12, 0, 0, 0);
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth();
+      const gridStart = new Date(year, month, 1 - new Date(year, month, 1).getDay(), 12);
+      const days = Array.from({ length: 42 }, (_, index) => addDays(gridStart, index));
+      const monthValue = `${year}-${pad2(month + 1)}`;
+      el.weekPicker.value = monthValue;
+      el.weekLabel.textContent = `${year}年${month + 1}月`;
+
+      const titleText = state.filters.student ? `${state.filters.student}的课表` : "学生课表";
+      el.calendarTitle.textContent = titleText;
+      el.pageTitle.textContent = titleText;
+
+      const coursesByDate = groupCoursesByDate(state.filteredCourses);
+      state.detailGroups = {};
+      el.calendarGrid.style.gridTemplateColumns = "";
+      let html = weekdayNames.map(dayName => `<div class="weekday-head cell">${dayName}</div>`).join("");
+
+      days.forEach(day => {
+        const dateText = formatDate(day);
+        const dayItems = buildDayItems(coursesByDate[dateText] || []);
+        const visibleItems = dayItems.slice(0, 5);
+        const isCurrentMonth = day.getMonth() === month;
+        const isToday = dateText === formatDate(new Date());
+        const classes = [
+          "month-day",
+          "cell",
+          isCurrentMonth ? "" : "is-muted",
+          isToday ? "is-today" : ""
+        ].filter(Boolean).join(" ");
+
+        html += `
+          <div class="${classes}">
+            <div class="date-row">
+              <span class="solar-date">${day.getDate()}</span>
+            </div>
+            <div class="course-list">
+              ${visibleItems.map(renderCalendarItem).join("")}
+              ${dayItems.length > visibleItems.length ? `<div class="more-count">还有 ${dayItems.length - visibleItems.length} 项</div>` : ""}
+            </div>
+          </div>
+        `;
+      });
+
+      el.calendarGrid.innerHTML = html;
+      const visibleThisMonth = state.filteredCourses.some(course => course.date.startsWith(monthValue));
+      el.emptyState.style.display = state.courses.length === 0 || !visibleThisMonth ? "block" : "none";
+      el.emptyState.textContent = state.courses.length === 0 ? "这里会显示保存后的课程日历。" : "这个月没有符合筛选条件的课程。";
+    }
+
+    function buildDayItems(courses) {
+      const groups = courses.sort(sortCourses).reduce((result, course) => {
+        const key = `${course.date}|${course.start}|${course.end}`;
+        if (!result[key]) result[key] = [];
+        result[key].push(course);
+        return result;
+      }, {});
+
+      return Object.values(groups).map(group => {
+        const students = unique(group.map(course => course.student));
+        if (students.length > 1) {
+          const id = `group-${group[0].date}-${group[0].start}-${group[0].end}`.replace(/[^a-zA-Z0-9-]/g, "-");
+          state.detailGroups[id] = group;
+          return { type: "group", id, courses: group };
+        }
+        return group.map(course => ({ type: "course", course }));
+      }).flat();
+    }
+
+    function renderCalendarItem(item) {
+      if (item.type === "group") return renderGroupedCourse(item.id, item.courses);
+      return renderCourse(item.course);
+    }
+
+    function renderGroupedCourse(groupId, courses) {
+      const first = courses[0];
+      const color = getSubjectColor(first.subject);
+      const students = unique(courses.map(course => course.student));
+      return `
+        <button class="course is-conflict" type="button" data-group-id="${escapeHtml(groupId)}" style="--subject-color:${color[0]};--subject-bg:#fff;--student-color:#6b7280">
+          <b>${escapeHtml(first.start)}-${escapeHtml(first.end)} ${students.length}名学生</b>
+          <span>点击查看 ${courses.length} 节课程</span>
+        </button>
+      `;
+    }
+
+    function renderCourse(course) {
+      const color = getSubjectColor(course.subject);
+      const studentColor = getStudentColor(course.student);
+      const roomText = state.showRoom ? `<span>${escapeHtml(course.room || "未填教室")}</span>` : "";
+      return `
+        <article class="course" style="--subject-color:${color[0]};--subject-bg:${color[1]};--student-color:${studentColor}">
+          <b>${escapeHtml(course.start)}-${escapeHtml(course.end)} ${escapeHtml(course.subject)}</b>
+          <span>${escapeHtml(course.student)}｜${escapeHtml(course.teacher || "未填教师")}</span>
+          ${roomText}
+        </article>
+      `;
+    }
+
+    function getSubjectColor(subject) {
+      const subjects = unique(state.courses.map(course => course.subject)).sort();
+      const index = Math.max(0, subjects.indexOf(subject));
+      return subjectColors[index % subjectColors.length];
+    }
+
+    function getStudentColor(student) {
+      const students = unique(state.courses.map(course => course.student)).sort();
+      const index = Math.max(0, students.indexOf(student));
+      return studentColors[index % studentColors.length];
+    }
+
+    function renderDetailCourse(course) {
+      const subjectColor = getSubjectColor(course.subject);
+      const studentColor = getStudentColor(course.student);
+      const roomText = state.showRoom ? `｜${escapeHtml(course.room || "未填教室")}` : "";
+      return `
+        <article class="detail-course" style="--subject-color:${subjectColor[0]};--subject-bg:${subjectColor[1]};--student-color:${studentColor}">
+          <b>${escapeHtml(course.student)}｜${escapeHtml(course.subject)}</b>
+          <span>${escapeHtml(course.start)}-${escapeHtml(course.end)}｜${escapeHtml(course.teacher || "未填教师")}${roomText}</span>
+        </article>
+      `;
+    }
+
+    function moveWeek(direction) {
+      state.selectedMonthDate = addMonths(state.selectedMonthDate, direction);
+      renderAll();
+    }
+
+    function addDays(date, days) {
+      const copy = new Date(date);
+      copy.setDate(copy.getDate() + days);
+      copy.setHours(12, 0, 0, 0);
+      return copy;
+    }
+
+    function addMonths(date, months) {
+      const copy = new Date(date);
+      copy.setDate(1);
+      copy.setMonth(copy.getMonth() + months);
+      copy.setHours(12, 0, 0, 0);
+      return copy;
+    }
+
+    function groupCoursesByDate(courses) {
+      return courses.reduce((groups, course) => {
+        if (!groups[course.date]) groups[course.date] = [];
+        groups[course.date].push(course);
+        return groups;
+      }, {});
+    }
+
+    function formatDate(date) {
+      const year = date.getFullYear();
+      const month = pad2(date.getMonth() + 1);
+      const day = pad2(date.getDate());
+      return `${year}-${month}-${day}`;
+    }
+
+    function unique(values) {
+      return Array.from(new Set(values.filter(Boolean)));
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#039;"
+      }[char]));
+    }
+  </script>
+</body>
+</html>
