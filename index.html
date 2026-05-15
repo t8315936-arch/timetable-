@@ -308,6 +308,30 @@
       min-width: 0;
     }
 
+    .course-period {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .rest-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #8a6115;
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .rest-line::before,
+    .rest-line::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: #e8c36d;
+    }
+
     .more-count {
       color: var(--muted);
       font-size: 13px;
@@ -316,9 +340,9 @@
 
     .course {
       border-left: 4px solid var(--subject-color);
-      border-top: 1px solid var(--student-color);
-      border-right: 1px solid var(--student-color);
-      border-bottom: 1px solid var(--student-color);
+      border-top: 1px solid var(--subject-color);
+      border-right: 1px solid var(--subject-color);
+      border-bottom: 1px solid var(--subject-color);
       background: var(--subject-bg);
       border-radius: 6px;
       padding: 4px 6px;
@@ -331,7 +355,7 @@
     .course.is-conflict {
       width: 100%;
       text-align: left;
-      border: 1px dashed var(--student-color);
+      border: 1px dashed #6b7280;
       border-left: 4px solid var(--subject-color);
       cursor: pointer;
     }
@@ -363,9 +387,9 @@
 
     .detail-course {
       border-left: 5px solid var(--subject-color);
-      border-top: 1px solid var(--student-color);
-      border-right: 1px solid var(--student-color);
-      border-bottom: 1px solid var(--student-color);
+      border-top: 1px solid var(--subject-color);
+      border-right: 1px solid var(--subject-color);
+      border-bottom: 1px solid var(--subject-color);
       border-radius: 8px;
       padding: 10px;
       background: var(--subject-bg);
@@ -784,15 +808,17 @@
       { start: "20:10", end: "20:55", label: "第12课时" }
     ];
 
-    const studentPalettes = [
-      [["#1d4ed8", "#dbeafe"], ["#2563eb", "#eff6ff"], ["#60a5fa", "#f0f7ff"], ["#1e40af", "#dbeafe"]],
-      [["#dc2626", "#fee2e2"], ["#ef4444", "#fff1f2"], ["#f472b6", "#fdf2f8"], ["#991b1b", "#fee2e2"]],
-      [["#15803d", "#dcfce7"], ["#16a34a", "#f0fdf4"], ["#84cc16", "#f7fee7"], ["#166534", "#dcfce7"]],
-      [["#7e22ce", "#f3e8ff"], ["#9333ea", "#faf5ff"], ["#c084fc", "#f5f3ff"], ["#581c87", "#f3e8ff"]],
-      [["#c2410c", "#ffedd5"], ["#ea580c", "#fff7ed"], ["#f59e0b", "#fffbeb"], ["#9a3412", "#ffedd5"]],
-      [["#0f766e", "#ccfbf1"], ["#14b8a6", "#f0fdfa"], ["#06b6d4", "#ecfeff"], ["#115e59", "#ccfbf1"]],
-      [["#be123c", "#ffe4e6"], ["#e11d48", "#fff1f2"], ["#fb7185", "#fff1f2"], ["#9f1239", "#ffe4e6"]],
-      [["#4338ca", "#e0e7ff"], ["#4f46e5", "#eef2ff"], ["#818cf8", "#eef2ff"], ["#312e81", "#e0e7ff"]]
+    const subjectColors = [
+      ["#2563eb", "#dbeafe"],
+      ["#dc2626", "#fee2e2"],
+      ["#16a34a", "#dcfce7"],
+      ["#9333ea", "#f3e8ff"],
+      ["#ea580c", "#ffedd5"],
+      ["#0891b2", "#cffafe"],
+      ["#c026d3", "#fae8ff"],
+      ["#ca8a04", "#fef3c7"],
+      ["#4f46e5", "#e0e7ff"],
+      ["#0f766e", "#ccfbf1"]
     ];
 
     const weekdayNames = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -1105,8 +1131,10 @@
 
       state.courses = mergeCourses(state.courses, state.previewCourses).sort(sortCourses);
       const savedToBrowser = saveCourses();
+      const latestStudent = state.previewCourses[0].student;
       state.selectedMonthDate = new Date(state.previewCourses[0].date + "T12:00:00");
       resetFilters();
+      state.filters.student = latestStudent;
       discardPreview();
       renderAll();
       closeModal();
@@ -1161,18 +1189,20 @@
       const subject = pick(row, ["科目", "课程", "课程名称"]);
       const teacher = pick(row, ["教师", "上课教师", "老师"]);
       const room = pick(row, ["教室", "上课教室"]);
+      const campus = pick(row, ["校区", "上课校区"]);
       const date = normalizeDate(pick(row, ["上课日期", "日期", "课程日期"]));
       const start = normalizeTime(pick(row, ["起始时间", "开始时间", "上课时间"]));
       const end = normalizeTime(pick(row, ["结束时间", "下课时间"]));
 
       if (!student || !subject || !date || !start || !end) return null;
       return {
-        id: `${student}-${subject}-${teacher}-${room}-${date}-${start}-${end}`,
+        id: `${student}-${subject}-${teacher}-${room}-${campus}-${date}-${start}-${end}`,
         student,
         courseType,
         subject,
         teacher,
         room,
+        campus,
         date,
         start,
         end
@@ -1233,6 +1263,7 @@
           <td>${escapeHtml(course.student)}</td>
           <td>${escapeHtml(course.subject)}</td>
           <td>${escapeHtml(course.teacher)}</td>
+          <td>${escapeHtml(course.campus)}</td>
           <td>${escapeHtml(course.room)}</td>
         </tr>
       `).join("");
@@ -1247,6 +1278,7 @@
               <th>学生/班级</th>
               <th>科目</th>
               <th>教师</th>
+              <th>校区</th>
               <th>教室</th>
             </tr>
           </thead>
@@ -1315,11 +1347,9 @@
       el.statRange.textContent = dates.length ? `${dates[0]} 至 ${dates[dates.length - 1]}` : "暂无";
 
       const subjects = unique(courses.map(course => course.subject));
-      el.legend.innerHTML = students.map(student => {
-        const color = getStudentBaseColor(student);
-        return `<span class="legend-item"><i class="dot" style="--subject-color:${color}"></i>${escapeHtml(student)}</span>`;
-      }).join("") + subjects.map(subject => {
-        return `<span class="legend-item">${escapeHtml(subject)}</span>`;
+      el.legend.innerHTML = subjects.map(subject => {
+        const color = getSubjectColor(subject);
+        return `<span class="legend-item"><i class="dot" style="--subject-color:${color.border}"></i>${escapeHtml(subject)}</span>`;
       }).join("");
     }
 
@@ -1355,6 +1385,7 @@
       days.forEach(day => {
         const dateText = formatDate(day);
         const dayItems = buildDayItems(coursesByDate[dateText] || []);
+        const periodItems = splitItemsByRestLines(dayItems);
         const isCurrentMonth = day.getMonth() === month;
         const isToday = dateText === formatDate(new Date());
         const classes = [
@@ -1370,7 +1401,11 @@
               <span class="solar-date">${day.getDate()}</span>
             </div>
             <div class="course-list">
-              ${dayItems.map(renderCalendarItem).join("")}
+              ${renderPeriodItems(periodItems.morning)}
+              <div class="rest-line">午休 12:15-13:15</div>
+              ${renderPeriodItems(periodItems.afternoon)}
+              <div class="rest-line">晚休 17:30-18:30</div>
+              ${renderPeriodItems(periodItems.evening)}
             </div>
           </div>
         `;
@@ -1382,6 +1417,24 @@
         monthValue,
         hasCourses: courses.some(course => course.date.startsWith(monthValue))
       };
+    }
+
+    function splitItemsByRestLines(items) {
+      return items.reduce((periods, item) => {
+        const start = item.type === "group" ? item.courses[0].start : item.course.start;
+        if (start < "12:15") {
+          periods.morning.push(item);
+        } else if (start < "17:30") {
+          periods.afternoon.push(item);
+        } else {
+          periods.evening.push(item);
+        }
+        return periods;
+      }, { morning: [], afternoon: [], evening: [] });
+    }
+
+    function renderPeriodItems(items) {
+      return `<div class="course-period">${items.map(renderCalendarItem).join("")}</div>`;
     }
 
     function buildDayItems(courses) {
@@ -1421,43 +1474,37 @@
 
     function renderCourse(course) {
       const color = getCourseColor(course);
+      const campusText = course.campus ? `<span>${escapeHtml(course.campus)}</span>` : "";
       const roomText = state.showRoom ? `<span>${escapeHtml(course.room || "未填教室")}</span>` : "";
       return `
-        <article class="course" style="--subject-color:${color.border};--subject-bg:${color.bg};--student-color:${color.student}">
+        <article class="course" style="--subject-color:${color.border};--subject-bg:${color.bg}">
           <b>${escapeHtml(course.start)}-${escapeHtml(course.end)} ${escapeHtml(course.subject)}</b>
           <span>${escapeHtml(course.student)}｜${escapeHtml(course.teacher || "未填教师")}</span>
+          ${campusText}
           ${roomText}
         </article>
       `;
     }
 
     function getCourseColor(course) {
-      const students = unique(state.courses.map(course => course.student)).sort();
-      const studentIndex = Math.max(0, students.indexOf(course.student));
-      const palette = studentPalettes[studentIndex % studentPalettes.length];
-      const subjectsForStudent = unique(state.courses.filter(item => item.student === course.student).map(item => item.subject)).sort();
-      const subjectIndex = Math.max(0, subjectsForStudent.indexOf(course.subject));
-      const color = palette[subjectIndex % palette.length];
-      return {
-        border: color[0],
-        bg: color[1],
-        student: palette[0][0]
-      };
+      return getSubjectColor(course.subject);
     }
 
-    function getStudentBaseColor(student) {
-      const students = unique(state.courses.map(course => course.student)).sort();
-      const index = Math.max(0, students.indexOf(student));
-      return studentPalettes[index % studentPalettes.length][0][0];
+    function getSubjectColor(subject) {
+      const subjects = unique(state.courses.map(course => course.subject)).sort();
+      const index = Math.max(0, subjects.indexOf(subject));
+      const color = subjectColors[index % subjectColors.length];
+      return { border: color[0], bg: color[1] };
     }
 
     function renderDetailCourse(course) {
       const color = getCourseColor(course);
+      const campusText = course.campus ? `｜${escapeHtml(course.campus)}` : "";
       const roomText = state.showRoom ? `｜${escapeHtml(course.room || "未填教室")}` : "";
       return `
-        <article class="detail-course" style="--subject-color:${color.border};--subject-bg:${color.bg};--student-color:${color.student}">
+        <article class="detail-course" style="--subject-color:${color.border};--subject-bg:${color.bg}">
           <b>${escapeHtml(course.student)}｜${escapeHtml(course.subject)}</b>
-          <span>${escapeHtml(course.start)}-${escapeHtml(course.end)}｜${escapeHtml(course.teacher || "未填教师")}${roomText}</span>
+          <span>${escapeHtml(course.start)}-${escapeHtml(course.end)}｜${escapeHtml(course.teacher || "未填教师")}${campusText}${roomText}</span>
         </article>
       `;
     }
