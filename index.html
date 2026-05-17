@@ -192,7 +192,7 @@
 
     .calendar-scroll {
       overflow-y: visible;
-      overflow-x: hidden;
+      overflow-x: visible;
       max-height: none;
     }
 
@@ -226,12 +226,12 @@
       position: absolute;
       left: 50%;
       top: 54%;
-      width: 54%;
-      max-width: 760px;
+      width: 62%;
+      max-width: 860px;
       transform: translate(-50%, -50%);
-      opacity: 0.055;
+      opacity: 0.12;
       pointer-events: none;
-      z-index: 1;
+      z-index: 6;
     }
 
     .export-month-title {
@@ -260,12 +260,13 @@
       position: sticky;
       top: 0;
       background: var(--panel-soft);
-      z-index: 2;
+      z-index: 30;
       min-height: 60px;
       display: grid;
       place-items: center;
       text-align: center;
       border-bottom: 1px solid var(--line-strong);
+      box-shadow: 0 8px 18px rgba(23, 49, 40, 0.08);
       font-weight: 800;
       font-size: 17px;
     }
@@ -1039,8 +1040,9 @@
         return;
       }
 
+      let exportTarget = null;
       try {
-        const exportTarget = buildExportTarget();
+        exportTarget = buildExportTarget();
         if (!exportTarget) {
           el.exportMessage.textContent = "当前筛选条件下没有课程可以导出。";
           return;
@@ -1048,6 +1050,7 @@
 
         el.exportMessage.textContent = "正在生成所有月份文件，请稍等...";
         document.body.appendChild(exportTarget);
+        await waitForExportImages(exportTarget);
         const canvas = await html2canvas(exportTarget, {
           backgroundColor: "#ffffff",
           scale: 2,
@@ -1078,8 +1081,20 @@
         el.exportMessage.textContent = "PDF 已生成。";
       } catch (error) {
         console.error(error);
+        if (exportTarget) exportTarget.remove();
         el.exportMessage.textContent = "导出失败了，请刷新页面后再试。";
       }
+    }
+
+    function waitForExportImages(target) {
+      const images = Array.from(target.querySelectorAll("img"));
+      return Promise.all(images.map(image => {
+        if (image.complete) return Promise.resolve();
+        return new Promise(resolve => {
+          image.onload = resolve;
+          image.onerror = resolve;
+        });
+      }));
     }
 
     function buildExportTarget() {
