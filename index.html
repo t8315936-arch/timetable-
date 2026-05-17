@@ -1253,7 +1253,7 @@
       }
 
       const students = unique(courses.map(course => course.student));
-      const subjects = unique(courses.map(course => course.subject));
+      const subjects = unique(courses.map(course => displaySubject(course.subject)));
       el.uploadMessage.textContent = `已读取 ${fileName}：找到 ${courses.length} 节课，${students.length} 个学生/班级，${subjects.length} 个科目。确认无误后可以保存到首页。`;
 
       const rows = courses.slice(0, 6).map(course => `
@@ -1261,7 +1261,7 @@
           <td>${escapeHtml(course.date)}</td>
           <td>${escapeHtml(course.start)}-${escapeHtml(course.end)}</td>
           <td>${escapeHtml(course.student)}</td>
-          <td>${escapeHtml(course.subject)}</td>
+          <td>${escapeHtml(displaySubject(course.subject))}</td>
           <td>${escapeHtml(course.teacher)}</td>
           <td>${escapeHtml(course.campus)}</td>
           <td>${escapeHtml(course.room)}</td>
@@ -1300,7 +1300,7 @@
         if (state.filters.endDate && course.date > state.filters.endDate) return false;
         if (state.filters.student && course.student !== state.filters.student) return false;
         if (state.filters.teacher && course.teacher !== state.filters.teacher) return false;
-        if (state.filters.subject && course.subject !== state.filters.subject) return false;
+        if (state.filters.subject && displaySubject(course.subject) !== state.filters.subject) return false;
         return true;
       });
     }
@@ -1326,7 +1326,7 @@
     function renderFilterOptions() {
       setSelectOptions(el.filterStudent, unique(state.courses.map(course => course.student)), "全部学生/班级", state.filters.student);
       setSelectOptions(el.filterTeacher, unique(state.courses.map(course => course.teacher)), "全部教师", state.filters.teacher);
-      setSelectOptions(el.filterSubject, unique(state.courses.map(course => course.subject)), "全部科目", state.filters.subject);
+      setSelectOptions(el.filterSubject, unique(state.courses.map(course => displaySubject(course.subject))), "全部科目", state.filters.subject);
       el.filterStartDate.value = state.filters.startDate;
       el.filterEndDate.value = state.filters.endDate;
       el.showRoom.checked = state.showRoom;
@@ -1346,7 +1346,7 @@
       el.statStudents.textContent = students.length;
       el.statRange.textContent = dates.length ? `${dates[0]} 至 ${dates[dates.length - 1]}` : "暂无";
 
-      const subjects = unique(courses.map(course => course.subject));
+      const subjects = unique(courses.map(course => displaySubject(course.subject)));
       el.legend.innerHTML = subjects.map(subject => {
         const color = getSubjectColor(subject);
         return `<span class="legend-item"><i class="dot" style="--subject-color:${color.border}"></i>${escapeHtml(subject)}</span>`;
@@ -1401,11 +1401,7 @@
               <span class="solar-date">${day.getDate()}</span>
             </div>
             <div class="course-list">
-              ${renderPeriodItems(periodItems.morning)}
-              <div class="rest-line">午休 12:15-13:15</div>
-              ${renderPeriodItems(periodItems.afternoon)}
-              <div class="rest-line">晚休 17:30-18:30</div>
-              ${renderPeriodItems(periodItems.evening)}
+              ${dayItems.length ? renderDaySchedule(periodItems) : ""}
             </div>
           </div>
         `;
@@ -1431,6 +1427,16 @@
         }
         return periods;
       }, { morning: [], afternoon: [], evening: [] });
+    }
+
+    function renderDaySchedule(periodItems) {
+      return `
+        ${renderPeriodItems(periodItems.morning)}
+        <div class="rest-line">午休 12:15-13:15</div>
+        ${renderPeriodItems(periodItems.afternoon)}
+        <div class="rest-line">晚休 17:30-18:30</div>
+        ${renderPeriodItems(periodItems.evening)}
+      `;
     }
 
     function renderPeriodItems(items) {
@@ -1478,7 +1484,7 @@
       const roomText = state.showRoom ? `<span>${escapeHtml(course.room || "未填教室")}</span>` : "";
       return `
         <article class="course" style="--subject-color:${color.border};--subject-bg:${color.bg}">
-          <b>${escapeHtml(course.start)}-${escapeHtml(course.end)} ${escapeHtml(course.subject)}</b>
+          <b>${escapeHtml(course.start)}-${escapeHtml(course.end)} ${escapeHtml(displaySubject(course.subject))}</b>
           <span>${escapeHtml(course.student)}｜${escapeHtml(course.teacher || "未填教师")}</span>
           ${campusText}
           ${roomText}
@@ -1491,8 +1497,9 @@
     }
 
     function getSubjectColor(subject) {
-      const subjects = unique(state.courses.map(course => course.subject)).sort();
-      const index = Math.max(0, subjects.indexOf(subject));
+      const subjectName = displaySubject(subject);
+      const subjects = unique(state.courses.map(course => displaySubject(course.subject))).sort();
+      const index = Math.max(0, subjects.indexOf(subjectName));
       const color = subjectColors[index % subjectColors.length];
       return { border: color[0], bg: color[1] };
     }
@@ -1503,7 +1510,7 @@
       const roomText = state.showRoom ? `｜${escapeHtml(course.room || "未填教室")}` : "";
       return `
         <article class="detail-course" style="--subject-color:${color.border};--subject-bg:${color.bg}">
-          <b>${escapeHtml(course.student)}｜${escapeHtml(course.subject)}</b>
+          <b>${escapeHtml(course.student)}｜${escapeHtml(displaySubject(course.subject))}</b>
           <span>${escapeHtml(course.start)}-${escapeHtml(course.end)}｜${escapeHtml(course.teacher || "未填教师")}${campusText}${roomText}</span>
         </article>
       `;
@@ -1542,6 +1549,10 @@
       const month = pad2(date.getMonth() + 1);
       const day = pad2(date.getDate());
       return `${year}-${month}-${day}`;
+    }
+
+    function displaySubject(subject) {
+      return String(subject || "").replace(/\s*\d+\s*\/\s*\d+\s*$/, "").trim();
     }
 
     function unique(values) {
