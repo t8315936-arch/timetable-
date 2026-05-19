@@ -1134,6 +1134,9 @@
     ];
 
     const weekdayNames = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+    const currentYear = new Date().getFullYear();
+    const defaultStartMonth = `${currentYear}-01`;
+    const defaultEndMonth = `${currentYear}-12`;
     const state = {
       courses: [],
       filteredCourses: [],
@@ -1142,8 +1145,8 @@
       currentDayDate: "",
       selectedMonthDate: new Date(),
       filters: {
-        startMonth: "",
-        endMonth: "",
+        startMonth: defaultStartMonth,
+        endMonth: defaultEndMonth,
         student: "",
         teacher: "",
         subject: ""
@@ -1733,9 +1736,9 @@
     }
 
     function resetFilters() {
-      state.filters = { startMonth: "", endMonth: "", student: "", teacher: "", subject: "" };
-      el.filterStartDate.value = "";
-      el.filterEndDate.value = "";
+      state.filters = { startMonth: defaultStartMonth, endMonth: defaultEndMonth, student: "", teacher: "", subject: "" };
+      el.filterStartDate.value = defaultStartMonth;
+      el.filterEndDate.value = defaultEndMonth;
     }
 
     function renderFilterOptions() {
