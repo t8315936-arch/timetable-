@@ -1390,28 +1390,26 @@
         return;
       }
 
-      let exportTarget = null;
       try {
-        exportTarget = buildExportTarget();
-        if (!exportTarget) {
+        const months = getMonthsForExport();
+        if (months.length === 0) {
           el.exportMessage.textContent = "当前筛选条件下没有课程可以导出。";
           return;
         }
 
-        el.exportMessage.textContent = "正在生成所有月份文件，请稍等...";
-        document.body.appendChild(exportTarget);
-        await waitForExportImages(exportTarget);
-        const canvas = await html2canvas(exportTarget, {
-          backgroundColor: "#ffffff",
-          scale: 2,
-          useCORS: true
-        });
-        exportTarget.remove();
         const fileName = `${el.calendarTitle.textContent}-全部月份`;
 
         if (type === "image") {
-          downloadDataUrl(canvas.toDataURL("image/png"), `${fileName}.png`);
-          el.exportMessage.textContent = "图片已生成。";
+          const monthGroups = chunkArray(months, 2);
+          el.exportMessage.textContent = `正在生成图片：共 ${monthGroups.length} 张，每张最多 2 个月...`;
+          for (let index = 0; index < monthGroups.length; index += 1) {
+            const group = monthGroups[index];
+            const target = buildExportTarget(group);
+            const canvas = await renderExportTargetToCanvas(target);
+            const rangeName = group.length === 1 ? group[0] : `${group[0]}至${group[group.length - 1]}`;
+            downloadDataUrl(canvas.toDataURL("image/png"), `${fileName}-${rangeName}.png`);
+          }
+          el.exportMessage.textContent = `图片已生成：共 ${monthGroups.length} 张。`;
           return;
         }
 
@@ -1420,19 +1418,47 @@
           return;
         }
 
-        const orientation = canvas.width >= canvas.height ? "landscape" : "portrait";
-        const pdf = new window.jspdf.jsPDF({
-          orientation,
-          unit: "px",
-          format: [canvas.width, canvas.height]
-        });
-        pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, canvas.width, canvas.height);
+        el.exportMessage.textContent = `正在生成 PDF：共 ${months.length} 页，每个月 1 页...`;
+        let pdf = null;
+        for (let index = 0; index < months.length; index += 1) {
+          const target = buildExportTarget([months[index]]);
+          const canvas = await renderExportTargetToCanvas(target);
+          const orientation = canvas.width >= canvas.height ? "landscape" : "portrait";
+
+          if (!pdf) {
+            pdf = new window.jspdf.jsPDF({
+              orientation,
+              unit: "px",
+              format: [canvas.width, canvas.height]
+            });
+          } else {
+            pdf.addPage([canvas.width, canvas.height], orientation);
+          }
+
+          pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, canvas.width, canvas.height);
+        }
+
         pdf.save(`${fileName}.pdf`);
-        el.exportMessage.textContent = "PDF 已生成。";
+        el.exportMessage.textContent = `PDF 已生成：共 ${months.length} 页。`;
       } catch (error) {
         console.error(error);
-        if (exportTarget) exportTarget.remove();
         el.exportMessage.textContent = "导出失败了，请刷新页面后再试。";
+      }
+    }
+
+    async function renderExportTargetToCanvas(target) {
+      document.body.appendChild(target);
+      try {
+        await waitForExportImages(target);
+        return await html2canvas(target, {
+          backgroundColor: "#ffffff",
+          scale: 2,
+          useCORS: true,
+          windowWidth: target.scrollWidth,
+          windowHeight: target.scrollHeight
+        });
+      } finally {
+        target.remove();
       }
     }
 
@@ -1461,8 +1487,7 @@
       return target;
     }
 
-    function buildExportTarget() {
-      const months = getMonthsForExport();
+    function buildExportTarget(months) {
       if (months.length === 0) return null;
 
       const target = document.createElement("div");
@@ -1491,6 +1516,14 @@
 
     function getMonthsForExport() {
       return unique(state.filteredCourses.map(course => course.date.slice(0, 7))).sort();
+    }
+
+    function chunkArray(items, size) {
+      const chunks = [];
+      for (let index = 0; index < items.length; index += size) {
+        chunks.push(items.slice(index, index + size));
+      }
+      return chunks;
     }
 
     function downloadDataUrl(dataUrl, fileName) {
