@@ -210,7 +210,7 @@
     .calendar-title {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 6px;
       min-width: 0;
     }
 
@@ -223,8 +223,14 @@
     }
 
     .calendar-title span {
-      color: var(--muted);
-      font-size: 14px;
+      width: fit-content;
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: var(--primary-soft);
+      color: var(--primary-deep);
+      font-size: 26px;
+      line-height: 1.1;
+      font-weight: 900;
     }
 
     .week-tools {
@@ -297,11 +303,13 @@
     .export-month-title {
       position: relative;
       z-index: 2;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--line);
-      font-size: 22px;
+      padding: 20px 18px;
+      border-bottom: 2px solid var(--line-strong);
+      background: linear-gradient(180deg, #f6fbf8, #ffffff);
+      font-size: 36px;
       font-weight: 900;
-      color: var(--text);
+      color: var(--primary-deep);
+      text-align: center;
     }
 
     .export-month .calendar-grid {
@@ -1365,7 +1373,7 @@
           useCORS: true
         });
         exportTarget.remove();
-        const fileName = `${formatDayTitle(state.currentDayDate)}-当天课表.png`;
+        const fileName = `${sanitizeFileName(`${getExportOwnerName()}${formatDayFileMonth(state.currentDayDate)}课表`)}.png`;
         downloadDataUrl(canvas.toDataURL("image/png"), fileName);
         el.exportDayBtn.textContent = "已生成";
       } catch (error) {
@@ -1397,8 +1405,6 @@
           return;
         }
 
-        const fileName = `${el.calendarTitle.textContent}-全部月份`;
-
         if (type === "image") {
           const monthGroups = chunkArray(months, 2);
           el.exportMessage.textContent = `正在生成图片：共 ${monthGroups.length} 张，每张最多 2 个月...`;
@@ -1406,8 +1412,8 @@
             const group = monthGroups[index];
             const target = buildExportTarget(group);
             const canvas = await renderExportTargetToCanvas(target);
-            const rangeName = group.length === 1 ? group[0] : `${group[0]}至${group[group.length - 1]}`;
-            downloadDataUrl(canvas.toDataURL("image/png"), `${fileName}-${rangeName}.png`);
+            const fileName = getExportFileName(group);
+            downloadDataUrl(canvas.toDataURL("image/png"), `${fileName}.png`);
           }
           el.exportMessage.textContent = `图片已生成：共 ${monthGroups.length} 张。`;
           return;
@@ -1438,7 +1444,7 @@
           pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, canvas.width, canvas.height);
         }
 
-        pdf.save(`${fileName}.pdf`);
+        pdf.save(`${getExportFileName(months)}.pdf`);
         el.exportMessage.textContent = `PDF 已生成：共 ${months.length} 页。`;
       } catch (error) {
         console.error(error);
@@ -1516,6 +1522,37 @@
 
     function getMonthsForExport() {
       return unique(state.filteredCourses.map(course => course.date.slice(0, 7))).sort();
+    }
+
+    function getExportFileName(months) {
+      return sanitizeFileName(`${getExportOwnerName()}${formatExportMonthRange(months)}课表`);
+    }
+
+    function getExportOwnerName() {
+      const students = unique(state.filteredCourses.map(course => course.student));
+      if (state.filters.student) return state.filters.student;
+      if (students.length === 1) return students[0];
+      return "全部";
+    }
+
+    function formatExportMonthRange(months) {
+      if (!months.length) return "";
+      if (months.length === 1) return formatFileMonth(months[0]);
+      return `${formatFileMonth(months[0])}至${formatFileMonth(months[months.length - 1])}`;
+    }
+
+    function formatFileMonth(monthValue) {
+      const [year, month] = monthValue.split("-");
+      return `${year}年${Number(month)}月`;
+    }
+
+    function formatDayFileMonth(dateText) {
+      const [year, month, day] = dateText.split("-");
+      return `${year}年${Number(month)}月${Number(day)}日`;
+    }
+
+    function sanitizeFileName(fileName) {
+      return fileName.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, "");
     }
 
     function chunkArray(items, size) {
