@@ -397,6 +397,16 @@
       font-size: 20px;
     }
 
+    .month-day.is-today.is-complex-date .solar-date {
+      width: 100%;
+      min-height: 34px;
+      height: auto;
+      padding: 0 10px;
+      border-radius: 8px;
+      justify-content: flex-start;
+      font-size: 16px;
+    }
+
     .course-list {
       display: flex;
       flex-direction: column;
@@ -620,6 +630,7 @@
 
     select,
     input[type="date"],
+    input[type="month"],
     input[type="text"] {
       width: 100%;
       height: 42px;
@@ -633,12 +644,14 @@
 
     select:hover,
     input[type="date"]:hover,
+    input[type="month"]:hover,
     input[type="text"]:hover {
       border-color: var(--line-strong);
     }
 
     select:focus,
     input[type="date"]:focus,
+    input[type="month"]:focus,
     input[type="text"]:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 4px rgba(22, 128, 91, 0.1);
@@ -777,6 +790,14 @@
       font-size: 20px;
     }
 
+    .modal-head-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
     .modal-body {
       padding: 18px;
     }
@@ -846,6 +867,30 @@
       color: var(--muted);
       font-size: 14px;
       line-height: 1.6;
+    }
+
+    .day-export {
+      position: relative;
+      width: 900px;
+      padding: 24px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .day-export-title {
+      position: relative;
+      z-index: 2;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+      font-size: 26px;
+      font-weight: 900;
+      color: var(--text);
+    }
+
+    .day-export .day-timeline {
+      position: relative;
+      z-index: 2;
     }
 
     @keyframes panelIn {
@@ -939,11 +984,11 @@
 
     <section class="filter-card" id="filterPanel">
       <div class="filter-grid">
-        <label>起始日期
-          <input type="date" id="filterStartDate">
+        <label>起始月份
+          <input type="month" id="filterStartDate">
         </label>
-        <label>结束日期
-          <input type="date" id="filterEndDate">
+        <label>结束月份
+          <input type="month" id="filterEndDate">
         </label>
         <label>学生/班级
           <select id="filterStudent"></select>
@@ -1027,7 +1072,10 @@
     <div class="modal-box">
       <div class="modal-head">
         <h2 id="detailTitle">课程详情</h2>
-        <button class="btn btn-plain" id="closeDetailModal" type="button">关闭</button>
+        <div class="modal-head-actions">
+          <button class="btn btn-primary" id="exportDayBtn" type="button" hidden>导出当天长图</button>
+          <button class="btn btn-plain" id="closeDetailModal" type="button">关闭</button>
+        </div>
       </div>
       <div class="modal-body">
         <div class="detail-list" id="detailList"></div>
@@ -1091,10 +1139,11 @@
       filteredCourses: [],
       previewCourses: [],
       detailGroups: {},
+      currentDayDate: "",
       selectedMonthDate: new Date(),
       filters: {
-        startDate: "",
-        endDate: "",
+        startMonth: "",
+        endMonth: "",
         student: "",
         teacher: "",
         subject: ""
@@ -1118,6 +1167,7 @@
       closeModal: document.querySelector("#closeModal"),
       detailModal: document.querySelector("#detailModal"),
       closeDetailModal: document.querySelector("#closeDetailModal"),
+      exportDayBtn: document.querySelector("#exportDayBtn"),
       detailTitle: document.querySelector("#detailTitle"),
       detailList: document.querySelector("#detailList"),
       exportModal: document.querySelector("#exportModal"),
@@ -1165,6 +1215,7 @@
       el.newBtn.addEventListener("click", openModal);
       el.closeModal.addEventListener("click", closeModal);
       el.closeDetailModal.addEventListener("click", closeDetailModal);
+      el.exportDayBtn.addEventListener("click", exportCurrentDayImage);
       el.exportBtn.addEventListener("click", openExportModal);
       el.closeExportModal.addEventListener("click", closeExportModal);
       el.exportImageBtn.addEventListener("click", () => exportCalendar("image"));
@@ -1248,6 +1299,8 @@
       const courses = state.detailGroups[groupId] || [];
       if (courses.length === 0) return;
       const first = courses[0];
+      state.currentDayDate = "";
+      el.exportDayBtn.hidden = true;
       el.detailTitle.textContent = `${first.date} ${first.start}-${first.end}`;
       el.detailList.innerHTML = courses.map(renderDetailCourse).join("");
       el.detailModal.classList.add("is-open");
@@ -1258,6 +1311,9 @@
       const courses = state.filteredCourses
         .filter(course => course.date === dateText)
         .sort(sortCourses);
+      state.currentDayDate = dateText;
+      el.exportDayBtn.hidden = false;
+      el.exportDayBtn.textContent = "导出当天长图";
       el.detailTitle.textContent = `${formatDayTitle(dateText)} 当日课表`;
       el.detailList.innerHTML = renderDayTimeline(courses);
       el.detailModal.classList.add("is-open");
@@ -1267,6 +1323,8 @@
     function closeDetailModal() {
       el.detailModal.classList.remove("is-open");
       el.detailModal.setAttribute("aria-hidden", "true");
+      state.currentDayDate = "";
+      el.exportDayBtn.hidden = true;
     }
 
     function openExportModal() {
@@ -1278,6 +1336,45 @@
     function closeExportModal() {
       el.exportModal.classList.remove("is-open");
       el.exportModal.setAttribute("aria-hidden", "true");
+    }
+
+    async function exportCurrentDayImage() {
+      if (!state.currentDayDate) return;
+      if (typeof html2canvas === "undefined") {
+        el.exportDayBtn.textContent = "导出工具未加载";
+        return;
+      }
+
+      const originalText = el.exportDayBtn.textContent;
+      let exportTarget = null;
+      try {
+        const courses = state.filteredCourses
+          .filter(course => course.date === state.currentDayDate)
+          .sort(sortCourses);
+        exportTarget = buildDayExportTarget(state.currentDayDate, courses);
+        el.exportDayBtn.textContent = "正在生成...";
+        el.exportDayBtn.disabled = true;
+        document.body.appendChild(exportTarget);
+        await waitForExportImages(exportTarget);
+        const canvas = await html2canvas(exportTarget, {
+          backgroundColor: "#ffffff",
+          scale: 2,
+          useCORS: true
+        });
+        exportTarget.remove();
+        const fileName = `${formatDayTitle(state.currentDayDate)}-当天课表.png`;
+        downloadDataUrl(canvas.toDataURL("image/png"), fileName);
+        el.exportDayBtn.textContent = "已生成";
+      } catch (error) {
+        console.error(error);
+        if (exportTarget) exportTarget.remove();
+        el.exportDayBtn.textContent = "导出失败";
+      } finally {
+        el.exportDayBtn.disabled = false;
+        window.setTimeout(() => {
+          if (!el.exportDayBtn.hidden) el.exportDayBtn.textContent = originalText;
+        }, 1200);
+      }
     }
 
     async function exportCalendar(type) {
@@ -1345,6 +1442,20 @@
           image.onerror = resolve;
         });
       }));
+    }
+
+    function buildDayExportTarget(dateText, courses) {
+      const target = document.createElement("div");
+      target.className = "day-export";
+      target.style.position = "absolute";
+      target.style.left = "-10000px";
+      target.style.top = "0";
+      target.innerHTML = `
+        <img class="export-watermark" src="${EXPORT_LOGO_DATA_URL}" alt="">
+        <div class="day-export-title">${escapeHtml(formatDayTitle(dateText))} 当日课表</div>
+        ${renderDayTimeline(courses)}
+      `;
+      return target;
     }
 
     function buildExportTarget() {
@@ -1596,8 +1707,9 @@
 
     function applyFilters() {
       state.filteredCourses = state.courses.filter(course => {
-        if (state.filters.startDate && course.date < state.filters.startDate) return false;
-        if (state.filters.endDate && course.date > state.filters.endDate) return false;
+        const courseMonth = course.date.slice(0, 7);
+        if (state.filters.startMonth && courseMonth < state.filters.startMonth) return false;
+        if (state.filters.endMonth && courseMonth > state.filters.endMonth) return false;
         if (state.filters.student && course.student !== state.filters.student) return false;
         if (state.filters.teacher && course.teacher !== state.filters.teacher) return false;
         if (state.filters.subject && displaySubject(course.subject) !== state.filters.subject) return false;
@@ -1606,19 +1718,22 @@
     }
 
     function updateFiltersFromInputs() {
-      state.filters.startDate = el.filterStartDate.value;
-      state.filters.endDate = el.filterEndDate.value;
+      state.filters.startMonth = el.filterStartDate.value;
+      state.filters.endMonth = el.filterEndDate.value;
+      if (state.filters.startMonth && state.filters.endMonth && state.filters.startMonth > state.filters.endMonth) {
+        [state.filters.startMonth, state.filters.endMonth] = [state.filters.endMonth, state.filters.startMonth];
+      }
       state.filters.student = el.filterStudent.value;
       state.filters.teacher = el.filterTeacher.value;
       state.filters.subject = el.filterSubject.value;
-      if (state.filters.startDate) {
-        state.selectedMonthDate = new Date(state.filters.startDate + "T12:00:00");
+      if (state.filters.startMonth) {
+        state.selectedMonthDate = new Date(state.filters.startMonth + "-01T12:00:00");
       }
       renderAll();
     }
 
     function resetFilters() {
-      state.filters = { startDate: "", endDate: "", student: "", teacher: "", subject: "" };
+      state.filters = { startMonth: "", endMonth: "", student: "", teacher: "", subject: "" };
       el.filterStartDate.value = "";
       el.filterEndDate.value = "";
     }
@@ -1627,8 +1742,8 @@
       setSelectOptions(el.filterStudent, unique(state.courses.map(course => course.student)), "全部学生/班级", state.filters.student);
       setSelectOptions(el.filterTeacher, unique(state.courses.map(course => course.teacher)), "全部教师", state.filters.teacher);
       setSelectOptions(el.filterSubject, unique(state.courses.map(course => displaySubject(course.subject))), "全部科目", state.filters.subject);
-      el.filterStartDate.value = state.filters.startDate;
-      el.filterEndDate.value = state.filters.endDate;
+      el.filterStartDate.value = state.filters.startMonth;
+      el.filterEndDate.value = state.filters.endMonth;
       el.showRoom.checked = state.showRoom;
       el.complexDate.checked = state.complexDate;
     }
@@ -1694,6 +1809,7 @@
         const classes = [
           "month-day",
           "cell",
+          state.complexDate ? "is-complex-date" : "",
           isCurrentMonth ? "" : "is-muted",
           isToday ? "is-today" : ""
         ].filter(Boolean).join(" ");
