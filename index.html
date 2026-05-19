@@ -361,6 +361,24 @@
       background: #e8c36d;
     }
 
+    .break-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #6b7d72;
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .break-line::before,
+    .break-line::after {
+      content: "";
+      height: 0;
+      flex: 1;
+      border-top: 1px dashed #a9bbb0;
+    }
+
     .more-count {
       color: var(--muted);
       font-size: 13px;
@@ -1477,7 +1495,7 @@
 
     function splitItemsByRestLines(items) {
       return items.reduce((periods, item) => {
-        const start = item.type === "group" ? item.courses[0].start : item.course.start;
+        const start = getItemStart(item);
         if (start < "12:15") {
           periods.morning.push(item);
         } else if (start < "17:30") {
@@ -1500,7 +1518,38 @@
     }
 
     function renderPeriodItems(items) {
-      return `<div class="course-period">${items.map(renderCalendarItem).join("")}</div>`;
+      return `<div class="course-period">${addBreakLines(items).join("")}</div>`;
+    }
+
+    function addBreakLines(items) {
+      return items.reduce((htmlParts, item, index) => {
+        if (index > 0 && shouldShowBreakLine(items[index - 1], item)) {
+          htmlParts.push(`<div class="break-line">休息</div>`);
+        }
+        htmlParts.push(renderCalendarItem(item));
+        return htmlParts;
+      }, []);
+    }
+
+    function shouldShowBreakLine(previousItem, nextItem) {
+      const previousEnd = timeToMinutes(getItemEnd(previousItem));
+      const nextStart = timeToMinutes(getItemStart(nextItem));
+      if (previousEnd === null || nextStart === null) return false;
+      return nextStart - previousEnd > 10;
+    }
+
+    function getItemStart(item) {
+      return item.type === "group" ? item.courses[0].start : item.course.start;
+    }
+
+    function getItemEnd(item) {
+      return item.type === "group" ? item.courses[0].end : item.course.end;
+    }
+
+    function timeToMinutes(time) {
+      const match = String(time || "").match(/^(\d{1,2}):(\d{2})$/);
+      if (!match) return null;
+      return Number(match[1]) * 60 + Number(match[2]);
     }
 
     function buildDayItems(courses) {
