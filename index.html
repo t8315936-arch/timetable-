@@ -9,9 +9,9 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>
     :root {
-      --bg: #f3f8f5;
+      --bg: #eef7f2;
       --panel: #ffffff;
-      --panel-soft: #f7fbf8;
+      --panel-soft: #f6fbf8;
       --text: #173128;
       --muted: #66756f;
       --line: #d8e7de;
@@ -19,8 +19,13 @@
       --primary: #16805b;
       --primary-deep: #0f6748;
       --primary-soft: #e7f6ef;
+      --accent: #2b6cb0;
+      --accent-soft: #e8f1fb;
+      --warm: #b7791f;
+      --warm-soft: #fff7e6;
       --warning-soft: #fff6e4;
-      --shadow: 0 18px 44px rgba(29, 82, 62, 0.11);
+      --shadow: 0 18px 48px rgba(29, 82, 62, 0.1);
+      --shadow-strong: 0 24px 70px rgba(23, 49, 40, 0.16);
     }
 
     * {
@@ -32,7 +37,9 @@
       min-height: 100vh;
       font-family: "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
       color: var(--text);
-      background: linear-gradient(180deg, rgba(224, 243, 232, 0.88) 0%, var(--bg) 42%, #eef6f1 100%);
+      background:
+        linear-gradient(135deg, rgba(232, 241, 251, 0.7) 0%, rgba(241, 250, 245, 0.78) 38%, rgba(255, 247, 230, 0.55) 100%),
+        var(--bg);
     }
 
     button,
@@ -46,10 +53,17 @@
       cursor: pointer;
     }
 
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible {
+      outline: 3px solid rgba(22, 128, 91, 0.2);
+      outline-offset: 2px;
+    }
+
     .app {
       width: min(1580px, 100%);
       margin: 0 auto;
-      padding: 22px;
+      padding: 24px;
     }
 
     .topbar {
@@ -57,19 +71,43 @@
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      margin-bottom: 16px;
+      margin-bottom: 18px;
+      padding: 18px 20px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(199, 221, 207, 0.86);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .brand {
+      min-width: 0;
+    }
+
+    .brand-kicker {
+      width: fit-content;
+      margin-bottom: 8px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: var(--primary-deep);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0;
     }
 
     .brand h1 {
       margin: 0;
-      font-size: 28px;
+      font-size: 30px;
       line-height: 1.25;
+      letter-spacing: 0;
     }
 
     .brand p {
-      margin: 6px 0 0;
+      margin: 7px 0 0;
       color: var(--muted);
       font-size: 14px;
+      line-height: 1.6;
     }
 
     .actions {
@@ -81,40 +119,56 @@
 
     .btn {
       min-height: 42px;
-      padding: 0 16px;
+      padding: 0 15px;
       border-radius: 8px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
       font-weight: 700;
-      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+      white-space: nowrap;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
     }
 
     .btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 10px 20px rgba(22, 128, 91, 0.14);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(22, 128, 91, 0.16);
+    }
+
+    .btn:active {
+      transform: translateY(0);
     }
 
     .btn-primary {
-      background: var(--primary);
+      background: linear-gradient(135deg, var(--primary), #1c9a70);
       color: #fff;
+      box-shadow: 0 12px 24px rgba(22, 128, 91, 0.18);
     }
 
     .btn-primary:hover {
-      background: var(--primary-deep);
+      background: linear-gradient(135deg, var(--primary-deep), #16805b);
     }
 
     .btn-plain {
-      background: #fff;
+      background: rgba(255, 255, 255, 0.92);
       color: var(--text);
       border: 1px solid var(--line);
+    }
+
+    .btn-plain:hover {
+      border-color: var(--line-strong);
+      background: var(--panel-soft);
     }
 
     .btn-danger {
       background: #fff;
       color: #9f4b18;
       border: 1px solid #efd4bc;
+    }
+
+    .btn-danger:hover {
+      background: var(--warm-soft);
+      box-shadow: 0 12px 24px rgba(183, 121, 31, 0.12);
     }
 
     .export-actions {
@@ -136,10 +190,11 @@
     .calendar-card,
     .filter-card,
     .summary-card {
-      background: rgba(255, 255, 255, 0.96);
+      background: rgba(255, 255, 255, 0.94);
       border: 1px solid rgba(199, 221, 207, 0.95);
       border-radius: 8px;
       box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
     }
 
     .calendar-header {
@@ -147,8 +202,9 @@
       grid-template-columns: minmax(280px, 1fr) auto;
       gap: 14px;
       align-items: center;
-      padding: 16px;
+      padding: 18px;
       border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 251, 248, 0.88));
     }
 
     .calendar-title {
@@ -159,10 +215,11 @@
     }
 
     .calendar-title strong {
-      font-size: 22px;
+      font-size: 24px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      letter-spacing: 0;
     }
 
     .calendar-title span {
@@ -188,6 +245,7 @@
       padding: 0 10px;
       background: #fff;
       color: var(--text);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
     }
 
     .calendar-scroll {
@@ -205,6 +263,8 @@
       min-width: 100%;
       display: grid;
       grid-template-columns: repeat(7, minmax(0, 1fr));
+      background: var(--line);
+      gap: 1px;
     }
 
     .export-stack {
@@ -258,8 +318,6 @@
     }
 
     .cell {
-      border-right: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
       background: #fff;
     }
 
@@ -276,20 +334,28 @@
       box-shadow: 0 8px 18px rgba(23, 49, 40, 0.08);
       font-weight: 800;
       font-size: 17px;
+      color: var(--primary-deep);
     }
 
     .month-day {
-      min-height: 118px;
-      padding: 8px;
+      min-height: 132px;
+      padding: 9px;
       display: flex;
       flex-direction: column;
       gap: 7px;
+      cursor: pointer;
+      transition: background 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .month-day:hover {
+      background: #fbfffd;
+      box-shadow: inset 0 0 0 2px rgba(22, 128, 91, 0.1);
     }
 
     .month-day.is-muted {
-      background: #f6f8f6;
+      background: #f7f9f7;
       color: var(--muted);
-      opacity: 0.72;
+      opacity: 0.76;
     }
 
     .month-day.is-today {
@@ -314,9 +380,10 @@
     }
 
     .solar-date {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 800;
       line-height: 1;
+      color: #1d3d32;
     }
 
     .month-day.is-today .solar-date {
@@ -339,7 +406,7 @@
 
     .course-period {
       display: grid;
-      gap: 5px;
+      gap: 6px;
       min-width: 0;
     }
 
@@ -392,11 +459,17 @@
       border-bottom: 1px solid var(--subject-color);
       background: var(--subject-bg);
       border-radius: 6px;
-      padding: 4px 6px;
+      padding: 5px 7px;
       min-height: 0;
       color: #123126;
       overflow: hidden;
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+      transition: transform 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .course:hover {
+      transform: translateY(-1px);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.86), 0 8px 18px rgba(23, 49, 40, 0.1);
     }
 
     .course.is-conflict {
@@ -432,6 +505,63 @@
       gap: 8px;
     }
 
+    .day-timeline {
+      display: grid;
+      gap: 8px;
+    }
+
+    .day-slot {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 12px;
+      align-items: stretch;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .day-slot-time {
+      display: grid;
+      align-content: center;
+      gap: 4px;
+      padding-right: 12px;
+      border-right: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .day-slot-time b {
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .day-slot-body {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .day-slot.is-break {
+      grid-template-columns: 1fr;
+      border-color: #e8c36d;
+      background: var(--warm-soft);
+      color: #8a6115;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .day-empty {
+      display: grid;
+      align-items: center;
+      min-height: 44px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
     .detail-course {
       border-left: 5px solid var(--subject-color);
       border-top: 1px solid var(--subject-color);
@@ -454,27 +584,29 @@
     }
 
     .empty-state {
-      padding: 42px 20px;
+      padding: 52px 20px;
       text-align: center;
       color: var(--muted);
-      background: #fff;
+      background: linear-gradient(180deg, #fff, #f8fcfa);
       border-top: 1px solid var(--line);
+      font-weight: 700;
     }
 
     .filter-card {
       display: none;
-      padding: 14px;
+      padding: 16px;
       margin-bottom: 16px;
     }
 
     .filter-card.is-open {
       display: block;
+      animation: panelIn 0.2s ease both;
     }
 
     .filter-grid {
       display: grid;
       grid-template-columns: repeat(6, minmax(140px, 1fr));
-      gap: 10px;
+      gap: 12px;
       align-items: end;
     }
 
@@ -490,16 +622,30 @@
     input[type="date"],
     input[type="text"] {
       width: 100%;
-      height: 40px;
+      height: 42px;
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 0 10px;
       background: #fff;
       color: var(--text);
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    select:hover,
+    input[type="date"]:hover,
+    input[type="text"]:hover {
+      border-color: var(--line-strong);
+    }
+
+    select:focus,
+    input[type="date"]:focus,
+    input[type="text"]:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(22, 128, 91, 0.1);
     }
 
     .checkbox-label {
-      min-height: 40px;
+      min-height: 42px;
       display: flex;
       align-items: center;
       gap: 9px;
@@ -510,6 +656,12 @@
       color: var(--text);
       font-size: 14px;
       font-weight: 700;
+      transition: border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .checkbox-label:hover {
+      border-color: var(--line-strong);
+      background: var(--panel-soft);
     }
 
     .checkbox-label input {
@@ -519,7 +671,7 @@
     }
 
     .summary-card {
-      padding: 12px 14px;
+      padding: 14px 16px;
       margin-bottom: 16px;
       display: flex;
       align-items: center;
@@ -530,10 +682,17 @@
 
     .stats {
       display: flex;
-      gap: 14px;
+      gap: 10px;
       flex-wrap: wrap;
       color: var(--muted);
       font-size: 14px;
+    }
+
+    .stats span {
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
     }
 
     .stats b {
@@ -550,12 +709,18 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 5px 8px;
+      padding: 6px 9px;
       border: 1px solid var(--line);
       border-radius: 999px;
       background: #fff;
       font-size: 12px;
       color: var(--muted);
+      transition: transform 0.16s ease, border-color 0.16s ease;
+    }
+
+    .legend-item:hover {
+      transform: translateY(-1px);
+      border-color: var(--line-strong);
     }
 
     .dot {
@@ -573,6 +738,7 @@
       padding: 18px;
       background: rgba(11, 24, 43, 0.42);
       z-index: 100;
+      backdrop-filter: blur(8px);
     }
 
     .modal.is-open {
@@ -585,17 +751,19 @@
       overflow: auto;
       background: #fff;
       border-radius: 8px;
-      box-shadow: 0 26px 80px rgba(13, 28, 48, 0.28);
+      box-shadow: var(--shadow-strong);
+      animation: modalIn 0.22s ease both;
     }
 
     .modal-head,
     .modal-foot {
-      padding: 16px;
+      padding: 16px 18px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 12px;
       border-bottom: 1px solid var(--line);
+      background: var(--panel-soft);
     }
 
     .modal-foot {
@@ -610,24 +778,31 @@
     }
 
     .modal-body {
-      padding: 16px;
+      padding: 18px;
     }
 
     .drop-zone {
       border: 2px dashed #9fc9b1;
       border-radius: 8px;
-      min-height: 170px;
+      min-height: 190px;
       display: grid;
       place-items: center;
       text-align: center;
       padding: 22px;
-      background: #f7fbf8;
-      transition: border 0.18s ease, background 0.18s ease;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(231, 246, 239, 0.64)),
+        var(--panel-soft);
+      transition: border 0.18s ease, background 0.18s ease, transform 0.18s ease;
     }
 
     .drop-zone.is-dragging {
       border-color: var(--primary);
       background: var(--primary-soft);
+      transform: scale(1.01);
+    }
+
+    .drop-zone:hover {
+      border-color: var(--primary);
     }
 
     .drop-zone strong {
@@ -646,6 +821,7 @@
       border: 1px solid var(--line);
       border-radius: 8px;
       overflow: hidden;
+      box-shadow: 0 12px 28px rgba(23, 49, 40, 0.08);
     }
 
     .preview table {
@@ -670,6 +846,28 @@
       color: var(--muted);
       font-size: 14px;
       line-height: 1.6;
+    }
+
+    @keyframes panelIn {
+      from {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes modalIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     }
 
     @media (max-width: 900px) {
@@ -709,6 +907,17 @@
       .btn {
         width: 100%;
       }
+
+      .day-slot {
+        grid-template-columns: 1fr;
+      }
+
+      .day-slot-time {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        padding-right: 0;
+        padding-bottom: 8px;
+      }
     }
   </style>
 </head>
@@ -716,11 +925,12 @@
   <main class="app">
     <section class="topbar">
       <div class="brand">
+        <div class="brand-kicker">Excel 转日历</div>
         <h1 id="pageTitle">课表日历</h1>
         <p>上传 Excel 后，网页会自动识别学生姓名或班级、科目、教师、教室、日期和上课时间。</p>
       </div>
       <div class="actions">
-        <button class="btn btn-primary" id="newBtn" type="button">新建</button>
+        <button class="btn btn-primary" id="newBtn" type="button">＋ 新建</button>
         <button class="btn btn-plain" id="viewBtn" type="button">查看</button>
         <button class="btn btn-plain" id="exportBtn" type="button">导出</button>
         <button class="btn btn-danger" id="clearBtn" type="button">清空保存</button>
@@ -996,7 +1206,12 @@
       });
       el.calendarGrid.addEventListener("click", event => {
         const button = event.target.closest("[data-group-id]");
-        if (button) openDetailModal(button.dataset.groupId);
+        if (button) {
+          openDetailModal(button.dataset.groupId);
+          return;
+        }
+        const dayCell = event.target.closest("[data-date]");
+        if (dayCell) openDayModal(dayCell.dataset.date);
       });
 
       ["dragenter", "dragover"].forEach(name => {
@@ -1035,6 +1250,16 @@
       const first = courses[0];
       el.detailTitle.textContent = `${first.date} ${first.start}-${first.end}`;
       el.detailList.innerHTML = courses.map(renderDetailCourse).join("");
+      el.detailModal.classList.add("is-open");
+      el.detailModal.setAttribute("aria-hidden", "false");
+    }
+
+    function openDayModal(dateText) {
+      const courses = state.filteredCourses
+        .filter(course => course.date === dateText)
+        .sort(sortCourses);
+      el.detailTitle.textContent = `${formatDayTitle(dateText)} 当日课表`;
+      el.detailList.innerHTML = renderDayTimeline(courses);
       el.detailModal.classList.add("is-open");
       el.detailModal.setAttribute("aria-hidden", "false");
     }
@@ -1474,7 +1699,7 @@
         ].filter(Boolean).join(" ");
 
         html += `
-          <div class="${classes}">
+          <div class="${classes}" data-date="${escapeHtml(dateText)}">
             <div class="date-row">
               <span class="solar-date">${formatCalendarDayLabel(day)}</span>
             </div>
@@ -1524,7 +1749,7 @@
     function addBreakLines(items) {
       return items.reduce((htmlParts, item, index) => {
         if (index > 0 && shouldShowBreakLine(items[index - 1], item)) {
-          htmlParts.push(`<div class="break-line">休息</div>`);
+          htmlParts.push(`<div class="break-line"></div>`);
         }
         htmlParts.push(renderCalendarItem(item));
         return htmlParts;
@@ -1625,6 +1850,68 @@
       `;
     }
 
+    function renderDayTimeline(courses) {
+      const usedCourseIds = new Set();
+      const slotsHtml = timeSlots.map(slot => {
+        if (slot.break) {
+          return `
+            <div class="day-slot is-break">
+              ${escapeHtml(slot.label)} ${escapeHtml(slot.start)}-${escapeHtml(slot.end)}
+            </div>
+          `;
+        }
+
+        const slotCourses = courses.filter(course => {
+          const key = getCourseKey(course);
+          if (usedCourseIds.has(key)) return false;
+          return courseBelongsToSlot(course, slot);
+        });
+        slotCourses.forEach(course => usedCourseIds.add(getCourseKey(course)));
+        const bodyHtml = slotCourses.length
+          ? slotCourses.map(renderDetailCourse).join("")
+          : `<div class="day-empty">暂无课程</div>`;
+
+        return `
+          <div class="day-slot">
+            <div class="day-slot-time">
+              <b>${escapeHtml(slot.label)}</b>
+              <span>${escapeHtml(slot.start)}-${escapeHtml(slot.end)}</span>
+            </div>
+            <div class="day-slot-body">${bodyHtml}</div>
+          </div>
+        `;
+      }).join("");
+
+      const extraCourses = courses.filter(course => !usedCourseIds.has(getCourseKey(course)));
+      if (!extraCourses.length) return `<div class="day-timeline">${slotsHtml}</div>`;
+
+      return `
+        <div class="day-timeline">
+          ${slotsHtml}
+          <div class="day-slot">
+            <div class="day-slot-time">
+              <b>其他时间</b>
+              <span>不在固定节点内</span>
+            </div>
+            <div class="day-slot-body">${extraCourses.map(renderDetailCourse).join("")}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function courseBelongsToSlot(course, slot) {
+      const courseStart = timeToMinutes(course.start);
+      const courseEnd = timeToMinutes(course.end);
+      const slotStart = timeToMinutes(slot.start);
+      const slotEnd = timeToMinutes(slot.end);
+      if ([courseStart, courseEnd, slotStart, slotEnd].some(value => value === null)) return false;
+      return courseStart >= slotStart && courseStart < slotEnd;
+    }
+
+    function getCourseKey(course) {
+      return course.id || `${course.date}|${course.start}|${course.end}|${course.student}|${course.subject}|${course.teacher}|${course.room}`;
+    }
+
     function moveWeek(direction) {
       state.selectedMonthDate = addMonths(state.selectedMonthDate, direction);
       renderAll();
@@ -1663,6 +1950,13 @@
     function formatCalendarDayLabel(date) {
       if (!state.complexDate) return String(date.getDate());
       return `${date.getMonth() + 1}月${date.getDate()}日`;
+    }
+
+    function formatDayTitle(dateText) {
+      const date = new Date(dateText + "T12:00:00");
+      if (Number.isNaN(date.getTime())) return dateText;
+      const weekday = weekdayNames[(date.getDay() + 6) % 7];
+      return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${weekday}`;
     }
 
     function displaySubject(subject) {
