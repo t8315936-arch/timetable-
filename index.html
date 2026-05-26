@@ -993,10 +993,10 @@
     <section class="filter-card" id="filterPanel">
       <div class="filter-grid">
         <label>起始月份
-          <input type="month" id="filterStartDate">
+          <select id="filterStartDate"></select>
         </label>
         <label>结束月份
-          <input type="month" id="filterEndDate">
+          <select id="filterEndDate"></select>
         </label>
         <label>学生/班级
           <select id="filterStudent"></select>
@@ -1813,13 +1813,27 @@
     }
 
     function renderFilterOptions() {
+      setMonthSelectOptions(el.filterStartDate, state.filters.startMonth);
+      setMonthSelectOptions(el.filterEndDate, state.filters.endMonth);
       setSelectOptions(el.filterStudent, unique(state.courses.map(course => course.student)), "全部学生/班级", state.filters.student);
       setSelectOptions(el.filterTeacher, unique(state.courses.map(course => course.teacher)), "全部教师", state.filters.teacher);
       setSelectOptions(el.filterSubject, unique(state.courses.map(course => displaySubject(course.subject))), "全部科目", state.filters.subject);
-      el.filterStartDate.value = state.filters.startMonth;
-      el.filterEndDate.value = state.filters.endMonth;
       el.showRoom.checked = state.showRoom;
       el.complexDate.checked = state.complexDate;
+    }
+
+    function setMonthSelectOptions(select, selected) {
+      const options = getMonthOptions();
+      select.innerHTML = options.map(monthValue => (
+        `<option value="${escapeHtml(monthValue)}"${monthValue === selected ? " selected" : ""}>${escapeHtml(formatFileMonth(monthValue))}</option>`
+      )).join("");
+      select.value = selected;
+    }
+
+    function getMonthOptions() {
+      const currentYearMonths = Array.from({ length: 12 }, (_, index) => `${currentYear}-${pad2(index + 1)}`);
+      const courseMonths = unique(state.courses.map(course => course.date.slice(0, 7)));
+      return unique([...currentYearMonths, ...courseMonths]).sort();
     }
 
     function setSelectOptions(select, options, firstText, selected) {
