@@ -685,6 +685,11 @@
       background: var(--panel-soft);
     }
 
+    .filter-grid select[multiple] {
+      min-height: 92px;
+      padding: 8px;
+    }
+
     .checkbox-label input {
       width: 17px;
       height: 17px;
@@ -998,8 +1003,11 @@
         <label>结束月份
           <select id="filterEndDate"></select>
         </label>
-        <label>学生/班级
+        <label>学生
           <select id="filterStudent"></select>
+        </label>
+        <label>班级课表
+          <select id="filterClass" multiple size="4"></select>
         </label>
         <label>上课教师
           <select id="filterTeacher"></select>
@@ -1156,6 +1164,7 @@
         startMonth: defaultStartMonth,
         endMonth: defaultEndMonth,
         student: "",
+        classes: [],
         teacher: "",
         subject: ""
       },
@@ -1197,6 +1206,7 @@
       filterStartDate: document.querySelector("#filterStartDate"),
       filterEndDate: document.querySelector("#filterEndDate"),
       filterStudent: document.querySelector("#filterStudent"),
+      filterClass: document.querySelector("#filterClass"),
       filterTeacher: document.querySelector("#filterTeacher"),
       showRoom: document.querySelector("#showRoom"),
       complexDate: document.querySelector("#complexDate"),
@@ -1255,7 +1265,7 @@
         }
       });
 
-      [el.filterStartDate, el.filterEndDate, el.filterStudent, el.filterTeacher, el.filterSubject].forEach(input => {
+      [el.filterStartDate, el.filterEndDate, el.filterStudent, el.filterClass, el.filterTeacher, el.filterSubject].forEach(input => {
         input.addEventListener("change", updateFiltersFromInputs);
       });
       el.showRoom.addEventListener("change", () => {
@@ -1532,6 +1542,8 @@
     function getExportOwnerName() {
       const students = unique(state.filteredCourses.map(course => course.student));
       if (state.filters.student) return state.filters.student;
+      if ((state.filters.classes || []).length === 1) return state.filters.classes[0];
+      if ((state.filters.classes || []).length > 1) return "多个班级";
       if (students.length === 1) return students[0];
       return "全部";
     }
@@ -1616,10 +1628,14 @@
 
       state.courses = mergeCourses(state.courses, state.previewCourses).sort(sortCourses);
       const savedToBrowser = saveCourses();
-      const latestStudent = state.previewCourses[0].student;
+      const latestCourse = state.previewCourses[0];
       state.selectedMonthDate = new Date(state.previewCourses[0].date + "T12:00:00");
       resetFilters();
-      state.filters.student = latestStudent;
+      if (getCourseType(latestCourse) === "class") {
+        state.filters.classes = [latestCourse.student];
+      } else {
+        state.filters.student = latestCourse.student;
+      }
       discardPreview();
       renderAll();
       closeModal();
@@ -1692,6 +1708,10 @@
         start,
         end
       };
+    }
+
+    function getCourseType(course) {
+      return course.courseType === "class" ? "class" : "student";
     }
 
     function pick(row, names) {
@@ -1784,7 +1804,13 @@
         const courseMonth = course.date.slice(0, 7);
         if (state.filters.startMonth && courseMonth < state.filters.startMonth) return false;
         if (state.filters.endMonth && courseMonth > state.filters.endMonth) return false;
-        if (state.filters.student && course.student !== state.filters.student) return false;
+        const selectedClasses = state.filters.classes || [];
+        const hasObjectFilter = Boolean(state.filters.student) || selectedClasses.length > 0;
+        if (hasObjectFilter) {
+          const isSelectedStudent = getCourseType(course) === "student" && course.student === state.filters.student;
+          const isSelectedClass = getCourseType(course) === "class" && selectedClasses.includes(course.student);
+          if (!isSelectedStudent && !isSelectedClass) return false;
+        }
         if (state.filters.teacher && course.teacher !== state.filters.teacher) return false;
         if (state.filters.subject && displaySubject(course.subject) !== state.filters.subject) return false;
         return true;
@@ -1798,6 +1824,7 @@
         [state.filters.startMonth, state.filters.endMonth] = [state.filters.endMonth, state.filters.startMonth];
       }
       state.filters.student = el.filterStudent.value;
+      state.filters.classes = getSelectedValues(el.filterClass);
       state.filters.teacher = el.filterTeacher.value;
       state.filters.subject = el.filterSubject.value;
       if (state.filters.startMonth) {
@@ -1807,7 +1834,7 @@
     }
 
     function resetFilters() {
-      state.filters = { startMonth: defaultStartMonth, endMonth: defaultEndMonth, student: "", teacher: "", subject: "" };
+      state.filters = { startMonth: defaultStartMonth, endMonth: defaultEndMonth, student: "", classes: [], teacher: "", subject: "" };
       el.filterStartDate.value = defaultStartMonth;
       el.filterEndDate.value = defaultEndMonth;
     }
@@ -1815,7 +1842,8 @@
     function renderFilterOptions() {
       setMonthSelectOptions(el.filterStartDate, state.filters.startMonth);
       setMonthSelectOptions(el.filterEndDate, state.filters.endMonth);
-      setSelectOptions(el.filterStudent, unique(state.courses.map(course => course.student)), "全部学生/班级", state.filters.student);
+      setSelectOptions(el.filterStudent, unique(state.courses.filter(course => getCourseType(course) === "student").map(course => course.student)), "全部学生", state.filters.student);
+      setMultiSelectOptions(el.filterClass, unique(state.courses.filter(course => getCourseType(course) === "class").map(course => course.student)), state.filters.classes);
       setSelectOptions(el.filterTeacher, unique(state.courses.map(course => course.teacher)), "全部教师", state.filters.teacher);
       setSelectOptions(el.filterSubject, unique(state.courses.map(course => displaySubject(course.subject))), "全部科目", state.filters.subject);
       el.showRoom.checked = state.showRoom;
@@ -1836,10 +1864,21 @@
       return unique([...currentYearMonths, ...courseMonths]).sort();
     }
 
+    function setMultiSelectOptions(select, options, selectedValues) {
+      const selectedSet = new Set(selectedValues || []);
+      select.innerHTML = options.map(option => (
+        `<option value="${escapeHtml(option)}"${selectedSet.has(option) ? " selected" : ""}>${escapeHtml(option)}</option>`
+      )).join("");
+    }
+
     function setSelectOptions(select, options, firstText, selected) {
       select.innerHTML = `<option value="">${firstText}</option>` + options.map(option => (
         `<option value="${escapeHtml(option)}"${option === selected ? " selected" : ""}>${escapeHtml(option)}</option>`
       )).join("");
+    }
+
+    function getSelectedValues(select) {
+      return Array.from(select.selectedOptions).map(option => option.value).filter(Boolean);
     }
 
     function renderSummary() {
@@ -1863,7 +1902,7 @@
       el.weekPicker.value = monthData.monthValue;
       el.weekLabel.textContent = monthData.label;
 
-      const titleText = state.filters.student ? `${state.filters.student}的课表` : "课表日历";
+      const titleText = getCalendarTitleText();
       el.calendarTitle.textContent = titleText;
       el.pageTitle.textContent = titleText;
 
@@ -1872,6 +1911,13 @@
       el.calendarGrid.innerHTML = monthData.html;
       el.emptyState.style.display = state.courses.length === 0 || !monthData.hasCourses ? "block" : "none";
       el.emptyState.textContent = state.courses.length === 0 ? "这里会显示保存后的课程日历。" : "这个月没有符合筛选条件的课程。";
+    }
+
+    function getCalendarTitleText() {
+      const selectedClasses = state.filters.classes || [];
+      if (state.filters.student && selectedClasses.length === 0) return `${state.filters.student}的课表`;
+      if (!state.filters.student && selectedClasses.length === 1) return `${selectedClasses[0]}的课表`;
+      return "课表日历";
     }
 
     function buildMonthCalendar(monthDate, courses) {
