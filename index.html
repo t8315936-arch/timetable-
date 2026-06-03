@@ -1869,9 +1869,6 @@
       state.filters.classes = state.filters.allClasses ? [] : getCheckedClassValues();
       state.filters.teacher = el.filterTeacher.value;
       state.filters.subject = el.filterSubject.value;
-      if (state.filters.startMonth) {
-        state.selectedMonthDate = new Date(state.filters.startMonth + "-01T12:00:00");
-      }
       renderAll();
     }
 
